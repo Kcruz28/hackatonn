@@ -1,54 +1,55 @@
-"""Shared Pydantic models and mock helpers for the profile/social endpoints.
+"""Shared Pydantic response models and DB helpers for the social/profile endpoints.
 
-NOTE — this is a SKELETON. Every endpoint returns mock data and persists nothing.
-The contract (field names + response shapes) is the real deliverable: the frontend
-codes against these, and the database team swaps the `mock_*` helpers below for real
-SQLAlchemy queries (behind a `get_db` dependency) without changing the shapes.
-
-Identity convention: a Profile is identified by its `name` (username) in URLs,
-per the agreed schema. There is no auth layer yet, so writes assume a placeholder
-"current user" (`CURRENT_USER`); wire this to `get_current_user` when auth lands.
+Identity note: the live `profiles.name` column is NOT unique, so UUID `profile_id`
+is the canonical identifier for relationships and write payloads. For convenience,
+list endpoints accept a `profile` query that is EITHER a UUID or a name (first match).
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime
 
+from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.orm import Session
 
-# Placeholder for the authenticated caller until JWT auth is wired in.
-CURRENT_USER = "me"
-
-
-def mock_now() -> datetime:
-    """A timestamp for fabricated responses."""
-    return datetime.now(timezone.utc)
+from app.models import Profile
 
 
 class ProfileSummary(BaseModel):
-    """Lightweight reference to a Profile, used wherever one profile points at
-    another (recipe author, review author, friend, follower, following)."""
+    """Lightweight reference to a profile, embedded wherever one is referenced."""
 
     model_config = ConfigDict(from_attributes=True)
 
+    profile_id: uuid.UUID
     name: str
     avatar_url: str | None = None
 
 
-def mock_profile(name: str = "sample_user") -> ProfileSummary:
-    return ProfileSummary(name=name, avatar_url=None)
-
-
 class FollowEdge(BaseModel):
-    """A directional follow relationship (follower -> following).
-
-    Shared by the /followers and /following routers, which are two views of the
-    same edge: `/following?profile=X` lists edges where X is the follower,
-    `/followers?profile=X` lists edges where X is the one being followed.
-    """
+    """A directional follow relationship (follower -> followee)."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
     follower: ProfileSummary
-    following: ProfileSummary
+    followee: ProfileSummary
     created_at: datetime
+
+
+def get_profile_or_404(db: Session, profile_id: uuid.UUID) -> Profile:
+    profile = db.get(Profile, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"Profile {profile_id} not found")
+    return profile
+
+
+def resolve_profile(db: Session, ident: str) -> Profile:
+    """Resolve a profile from either a UUID string or a name (first match)."""
+    try:
+        return get_profile_or_404(db, uuid.UUID(ident))
+    except ValueError:
+        pass  # not a UUID — fall through to name lookup
+    profile = db.query(Profile).filter(Profile.name == ident).first()
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"Profile '{ident}' not found")
+    return profile

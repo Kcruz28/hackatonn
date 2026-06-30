@@ -11,14 +11,15 @@ Docs: http://localhost:8000/docs
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routers import followers, following, friends, recipes, reviews
 
-app = FastAPI(title="Reci API — profile/social endpoints (skeleton)")
+app = FastAPI(title="Reci API — profile/social endpoints")
 
-# CORS — permissive while developing; tighten to the real frontend origin later.
+# CORS — allow the configured frontend origin (plus localhost for dev).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=list({settings.FRONTEND_ORIGIN, "http://localhost:3000"}),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
