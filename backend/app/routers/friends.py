@@ -1,7 +1,7 @@
 """Friends endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase.
 
-LinkedIn-style MUTUAL connection. `friendships` is (user_a, user_b, created_at)
-with a composite PK and no status column, so a connection is a single row. The
+MUTUAL friendship. `friendships` is (user_a, user_b, created_at)
+with a composite PK and no status column, so a friendship is a single row. The
 pair is normalized (smaller UUID first) so it's stored once regardless of who
 initiated. For writes the caller is one side (taken from the token). Listing is public.
 """
@@ -49,7 +49,7 @@ def list_friends(
     limit: int = Query(default=50, le=200),
     db: Session = Depends(get_db),
 ):
-    """LIST a profile's friends (returns the other side of each connection). (Public)"""
+    """LIST a profile's friends (returns the other side of each friendship). (Public)"""
     pid = resolve_profile(db, profile).profile_id
     rows = (
         db.query(Friendship)

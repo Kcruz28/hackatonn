@@ -41,6 +41,7 @@ class Profile(Base):
     profile_id = _uuid_pk()
     name = Column(Text, nullable=False)
     avatar_url = Column(Text)
+    bio = Column(Text)
     created_at = _created_at()
 
 
