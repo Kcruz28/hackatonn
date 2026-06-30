@@ -1,0 +1,58 @@
+APPROVED_RECIPES = [
+    {
+        "name": "Vodka Pasta",
+        "url": "https://www.allrecipes.com/recipe/8513545/penne-alla-vodka/",
+        "difficulty": 5,
+        "budget": "$$",
+        "saves": 1240,
+    },
+    {
+        "name": "Caesar Salad",
+        "url": "https://www.allrecipes.com/recipe/14172/caesar-salad-supreme/",
+        "difficulty": 2,
+        "budget": "$",
+        "saves": 980,
+    },
+    {
+        "name": "Margherita Pizza",
+        "url": "https://www.allrecipes.com/recipe/133948/four-cheese-margherita-pizza/",
+        "difficulty": 6,
+        "budget": "$$$",
+        "saves": 1520,
+    },
+    {
+        "name": "Butter Chicken",
+        "url": "https://www.allrecipes.com/recipe/24782/makhani-chicken-indian-butter-chicken/",
+        "difficulty": 7,
+        "budget": "$$",
+        "saves": 2100,
+    },
+    {
+        "name": "Fried Rice",
+        "url": "https://www.allrecipes.com/recipe/21186/vegetable-fried-rice/",
+        "difficulty": 4,
+        "budget": "$",
+        "saves": 1750,
+    },
+    {
+        "name": "Carne Asada Tacos",
+        "url": "https://www.allrecipes.com/recipe/70935/taqueria-style-tacos-carne-asada/",
+        "difficulty": 6,
+        "budget": "$$",
+        "saves": 1320,
+    },
+    {
+        "name": "Falafel",
+        "url": "https://www.allrecipes.com/recipe/241705/chef-johns-falafel/",
+        "difficulty": 6,
+        "budget": "$",
+        "saves": 890,
+    },
+    {
+        "name": "Greek Salad",
+        "url": "https://www.allrecipes.com/recipe/14341/good-for-you-greek-salad/",
+        "difficulty": 3,
+        "budget": "$",
+        "saves": 760,
+    },
+]
