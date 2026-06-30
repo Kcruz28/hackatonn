@@ -80,7 +80,7 @@ def create_friendship(
     db: Session = Depends(get_db),
     current: Profile = Depends(get_current_user),
 ):
-    """POST — connect the caller with `friend_id` (mutual)."""
+    """POST — add `friend_id` as a friend of the caller (mutual)."""
     if payload.friend_id == current.profile_id:
         raise HTTPException(status_code=400, detail="Cannot befriend yourself")
     get_profile_or_404(db, payload.friend_id)
@@ -102,7 +102,7 @@ def delete_friendship(
     db: Session = Depends(get_db),
     current: Profile = Depends(get_current_user),
 ):
-    """DELETE — remove the connection between the caller and `friend_id`."""
+    """DELETE — remove the friendship between the caller and `friend_id`."""
     friendship = db.get(Friendship, _norm(current.profile_id, friend_id))
     if friendship is None:
         raise HTTPException(status_code=404, detail="Friendship not found")
