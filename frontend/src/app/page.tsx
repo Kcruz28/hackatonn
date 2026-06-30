@@ -220,7 +220,7 @@ export default function App() {
           <div className="bg-gradient-to-br from-[#C04E28] to-[#9E3A1C] rounded-2xl p-4 text-white">
             <p className="font-['Playfair_Display'] text-base font-semibold mb-1">Rank something today</p>
             <p className="text-xs text-white/70 mb-3 leading-relaxed">You&apos;ve cooked 3 recipes this week. Give them a rating.</p>
-            <button className="w-full bg-white/15 hover:bg-white/25 text-white text-sm font-medium py-2 rounded-xl transition-colors">Start Ranking</button>
+            <button className="w-full bg-white/15 hover:bg-white/25 text-white text-sm font-medium py-2 rounded-xl transition-colors">Start ranking</button>
           </div>
         </aside>
       </div>
