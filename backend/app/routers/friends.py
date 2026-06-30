@@ -1,15 +1,15 @@
 """Friends endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase.
 
-LinkedIn-style MUTUAL connection. The live `friendships` table is just
-(user_a, user_b, created_at) with a composite PK and no status column, so a
-connection is a single row. We normalize the pair (smaller UUID first) so a
-friendship is stored once regardless of who initiated it.
+LinkedIn-style MUTUAL connection. `friendships` is (user_a, user_b, created_at)
+with a composite PK and no status column, so a connection is a single row. The
+pair is normalized (smaller UUID first) so it's stored once regardless of who
+initiated. For writes the caller is one side (taken from the token). Listing is public.
 """
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
@@ -19,14 +19,14 @@ from sqlalchemy.orm import Session
 
 from app.common import ProfileSummary, get_profile_or_404, resolve_profile
 from app.database import get_db
-from app.models import Friendship
+from app.deps import get_current_user
+from app.models import Friendship, Profile
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
 
 class FriendCreate(BaseModel):
-    profile_id: uuid.UUID
-    friend_id: uuid.UUID
+    friend_id: uuid.UUID                    # the other side (caller is implicit)
 
 
 class FriendshipOut(BaseModel):
@@ -49,7 +49,7 @@ def list_friends(
     limit: int = Query(default=50, le=200),
     db: Session = Depends(get_db),
 ):
-    """LIST a profile's friends (returns the other side of each connection)."""
+    """LIST a profile's friends (returns the other side of each connection). (Public)"""
     pid = resolve_profile(db, profile).profile_id
     rows = (
         db.query(Friendship)
@@ -61,24 +61,30 @@ def list_friends(
     return [r.profile_b if r.user_a == pid else r.profile_a for r in rows]
 
 
-@router.get("/{profile_id}/{friend_id}", response_model=FriendshipOut)
-def get_friendship(profile_id: uuid.UUID, friend_id: uuid.UUID, db: Session = Depends(get_db)):
-    """GET a single friendship between two profiles."""
-    a, b = _norm(profile_id, friend_id)
-    friendship = db.get(Friendship, (a, b))
+@router.get("/{friend_id}", response_model=FriendshipOut)
+def get_friendship(
+    friend_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """GET the friendship between the caller and `friend_id`."""
+    friendship = db.get(Friendship, _norm(current.profile_id, friend_id))
     if friendship is None:
         raise HTTPException(status_code=404, detail="Friendship not found")
     return friendship
 
 
 @router.post("", response_model=FriendshipOut, status_code=status.HTTP_201_CREATED)
-def create_friendship(payload: FriendCreate, db: Session = Depends(get_db)):
-    """POST — connect two profiles (mutual)."""
-    if payload.profile_id == payload.friend_id:
+def create_friendship(
+    payload: FriendCreate,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """POST — connect the caller with `friend_id` (mutual)."""
+    if payload.friend_id == current.profile_id:
         raise HTTPException(status_code=400, detail="Cannot befriend yourself")
-    get_profile_or_404(db, payload.profile_id)
     get_profile_or_404(db, payload.friend_id)
-    a, b = _norm(payload.profile_id, payload.friend_id)
+    a, b = _norm(current.profile_id, payload.friend_id)
     friendship = Friendship(user_a=a, user_b=b)
     db.add(friendship)
     try:
@@ -90,11 +96,14 @@ def create_friendship(payload: FriendCreate, db: Session = Depends(get_db)):
     return friendship
 
 
-@router.delete("/{profile_id}/{friend_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_friendship(profile_id: uuid.UUID, friend_id: uuid.UUID, db: Session = Depends(get_db)):
-    """DELETE — remove a connection between two profiles."""
-    a, b = _norm(profile_id, friend_id)
-    friendship = db.get(Friendship, (a, b))
+@router.delete("/{friend_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_friendship(
+    friend_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """DELETE — remove the connection between the caller and `friend_id`."""
+    friendship = db.get(Friendship, _norm(current.profile_id, friend_id))
     if friendship is None:
         raise HTTPException(status_code=404, detail="Friendship not found")
     db.delete(friendship)

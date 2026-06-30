@@ -1,4 +1,8 @@
-"""Recipes endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase."""
+"""Recipes endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase.
+
+Reads are public; writes require auth. The author is taken from the access token,
+never from the request body. DELETE is restricted to the recipe's author.
+"""
 from __future__ import annotations
 
 import uuid
@@ -10,9 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.common import ProfileSummary, get_profile_or_404, resolve_profile
+from app.common import ProfileSummary, resolve_profile
 from app.database import get_db
-from app.models import Recipe, Review
+from app.deps import get_current_user
+from app.models import Profile, Recipe, Review
 from app.routers.reviews import ReviewOut
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
@@ -29,7 +34,7 @@ class RecipeBase(BaseModel):
 
 
 class RecipeCreate(RecipeBase):
-    author_id: uuid.UUID                    # FK -> profiles (no auth yet)
+    """Author comes from the token, not the body."""
 
 
 class RecipeOut(RecipeBase):
@@ -86,7 +91,7 @@ def list_recipes(
     author: Optional[str] = Query(default=None, description="Filter by author UUID or name"),
     db: Session = Depends(get_db),
 ):
-    """LIST recipes, newest-first, with optional cuisine/author filters."""
+    """LIST recipes, newest-first, with optional cuisine/author filters. (Public)"""
     q = db.query(Recipe).order_by(Recipe.created_at.desc())
     if cuisine:
         q = q.filter(Recipe.cuisine == cuisine)
@@ -99,7 +104,7 @@ def list_recipes(
 
 @router.get("/{recipe_id}", response_model=RecipeDetail)
 def get_recipe(recipe_id: uuid.UUID, db: Session = Depends(get_db)):
-    """GET a single recipe with its reviews and aggregate rating."""
+    """GET a single recipe with its reviews and aggregate rating. (Public)"""
     recipe = db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
@@ -112,10 +117,13 @@ def get_recipe(recipe_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=RecipeOut, status_code=status.HTTP_201_CREATED)
-def create_recipe(payload: RecipeCreate, db: Session = Depends(get_db)):
-    """POST a new recipe. `author_id` must reference an existing profile."""
-    get_profile_or_404(db, payload.author_id)  # 404 instead of FK IntegrityError
-    recipe = Recipe(**payload.model_dump())
+def create_recipe(
+    payload: RecipeCreate,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """POST a new recipe authored by the authenticated caller."""
+    recipe = Recipe(**payload.model_dump(), author_id=current.profile_id)
     db.add(recipe)
     db.commit()
     db.refresh(recipe)
@@ -123,11 +131,17 @@ def create_recipe(payload: RecipeCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_recipe(recipe_id: uuid.UUID, db: Session = Depends(get_db)):
-    """DELETE a recipe (ownership check belongs here once auth lands)."""
+def delete_recipe(
+    recipe_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """DELETE a recipe — only the author may delete it."""
     recipe = db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
+    if recipe.author_id != current.profile_id:
+        raise HTTPException(status_code=403, detail="Not your recipe")
     db.delete(recipe)
     db.commit()
     return None

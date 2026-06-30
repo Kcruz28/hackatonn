@@ -1,7 +1,7 @@
 """Reviews endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase.
 
-DB columns: stars (1-5), `comment` (text), single `image_url`. UNIQUE(author_id,
-recipe_id) means one review per author per recipe (duplicate -> 409).
+Reads are public; writes require auth. The author is taken from the token.
+DB: stars (1-5), `comment`, single `image_url`. UNIQUE(author, recipe) -> 409.
 """
 from __future__ import annotations
 
@@ -14,9 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.common import ProfileSummary, get_profile_or_404
+from app.common import ProfileSummary
 from app.database import get_db
-from app.models import Recipe, Review
+from app.deps import get_current_user
+from app.models import Profile, Recipe, Review
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -30,8 +31,7 @@ class ReviewBase(BaseModel):
 
 
 class ReviewCreate(ReviewBase):
-    recipe_id: uuid.UUID
-    author_id: uuid.UUID                    # FK -> profiles (no auth yet)
+    recipe_id: uuid.UUID                    # author comes from the token
 
 
 class ReviewOut(ReviewBase):
@@ -53,7 +53,7 @@ def list_reviews(
     limit: int = Query(default=20, le=100),
     db: Session = Depends(get_db),
 ):
-    """LIST reviews, newest-first, optionally filtered by recipe or author."""
+    """LIST reviews, newest-first, optionally filtered by recipe or author. (Public)"""
     q = db.query(Review).order_by(Review.created_at.desc())
     if recipe_id:
         q = q.filter(Review.recipe_id == recipe_id)
@@ -64,7 +64,7 @@ def list_reviews(
 
 @router.get("/{review_id}", response_model=ReviewOut)
 def get_review(review_id: uuid.UUID, db: Session = Depends(get_db)):
-    """GET a single review."""
+    """GET a single review. (Public)"""
     review = db.get(Review, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -72,12 +72,15 @@ def get_review(review_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
-def create_review(payload: ReviewCreate, db: Session = Depends(get_db)):
-    """POST a review on a recipe. One per (author, recipe) — duplicate -> 409."""
-    get_profile_or_404(db, payload.author_id)
+def create_review(
+    payload: ReviewCreate,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """POST a review (by the caller) on a recipe. One per (author, recipe) -> 409."""
     if db.get(Recipe, payload.recipe_id) is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
-    review = Review(**payload.model_dump())
+    review = Review(**payload.model_dump(), author_id=current.profile_id)
     db.add(review)
     try:
         db.commit()
@@ -89,11 +92,17 @@ def create_review(payload: ReviewCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_review(review_id: uuid.UUID, db: Session = Depends(get_db)):
-    """DELETE a review (ownership check belongs here once auth lands)."""
+def delete_review(
+    review_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """DELETE a review — only its author may delete it."""
     review = db.get(Review, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review not found")
+    if review.author_id != current.profile_id:
+        raise HTTPException(status_code=403, detail="Not your review")
     db.delete(review)
     db.commit()
     return None

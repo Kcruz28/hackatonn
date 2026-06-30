@@ -1,8 +1,9 @@
-"""Followers endpoints — GET (single), LIST, POST, DELETE. Wired to Supabase.
+"""Followers endpoints — GET (single), LIST, DELETE. Wired to Supabase.
 
-Directional: the profiles that follow a given profile — the mirror view of
-/following over the same `follows` edge. You normally gain a follower when someone
-else follows you (POST /following); POST here exists for contract symmetry.
+Directional mirror of /following: the profiles that follow a user. Listing is
+public. There is no POST here — you can't make someone follow you; a follower is
+created when *they* call POST /following. The caller can inspect or remove their
+own followers (caller = followee).
 """
 from __future__ import annotations
 
@@ -10,20 +11,14 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.common import FollowEdge, get_profile_or_404, resolve_profile
+from app.common import FollowEdge, resolve_profile
 from app.database import get_db
-from app.models import Follow
+from app.deps import get_current_user
+from app.models import Follow, Profile
 
 router = APIRouter(prefix="/followers", tags=["followers"])
-
-
-class FollowerCreate(BaseModel):
-    follower_id: uuid.UUID                  # who is doing the following
-    followee_id: uuid.UUID                  # the profile being followed
 
 
 @router.get("", response_model=List[FollowEdge])
@@ -33,46 +28,34 @@ def list_followers(
     limit: int = Query(default=50, le=200),
     db: Session = Depends(get_db),
 ):
-    """LIST the profiles that follow `profile`."""
+    """LIST the profiles that follow `profile`. (Public)"""
     pid = resolve_profile(db, profile).profile_id
-    return (
-        db.query(Follow).filter(Follow.followee_id == pid).offset(skip).limit(limit).all()
-    )
+    return db.query(Follow).filter(Follow.followee_id == pid).offset(skip).limit(limit).all()
 
 
-@router.get("/{follower_id}/{followee_id}", response_model=FollowEdge)
-def get_follower(follower_id: uuid.UUID, followee_id: uuid.UUID, db: Session = Depends(get_db)):
-    """GET a single follower edge."""
-    edge = db.get(Follow, (follower_id, followee_id))
+@router.get("/{follower_id}", response_model=FollowEdge)
+def get_follower(
+    follower_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """GET whether `follower_id` follows the caller."""
+    edge = db.get(Follow, (follower_id, current.profile_id))
     if edge is None:
-        raise HTTPException(status_code=404, detail="Follow not found")
+        raise HTTPException(status_code=404, detail="Not a follower")
     return edge
 
 
-@router.post("", response_model=FollowEdge, status_code=status.HTTP_201_CREATED)
-def add_follower(payload: FollowerCreate, db: Session = Depends(get_db)):
-    """POST — record that `follower_id` follows `followee_id` (symmetry with /following)."""
-    if payload.follower_id == payload.followee_id:
-        raise HTTPException(status_code=400, detail="Cannot follow yourself")
-    get_profile_or_404(db, payload.follower_id)
-    get_profile_or_404(db, payload.followee_id)
-    edge = Follow(follower_id=payload.follower_id, followee_id=payload.followee_id)
-    db.add(edge)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Already following")
-    db.refresh(edge)
-    return edge
-
-
-@router.delete("/{follower_id}/{followee_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_follower(follower_id: uuid.UUID, followee_id: uuid.UUID, db: Session = Depends(get_db)):
-    """DELETE — remove a follower (drops the follow edge)."""
-    edge = db.get(Follow, (follower_id, followee_id))
+@router.delete("/{follower_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_follower(
+    follower_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current: Profile = Depends(get_current_user),
+):
+    """DELETE — the caller removes `follower_id` from their followers."""
+    edge = db.get(Follow, (follower_id, current.profile_id))
     if edge is None:
-        raise HTTPException(status_code=404, detail="Follow not found")
+        raise HTTPException(status_code=404, detail="Not a follower")
     db.delete(edge)
     db.commit()
     return None
