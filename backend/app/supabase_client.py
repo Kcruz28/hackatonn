@@ -31,7 +31,12 @@ def admin_create_user(email: str, password: str, username: str) -> dict:
             "email": email,
             "password": password,
             "email_confirm": True,
-            "user_metadata": {"username": username},
+            # display_name/name make the Supabase Auth dashboard show the username.
+            "user_metadata": {
+                "username": username,
+                "display_name": username,
+                "name": username,
+            },
         },
         timeout=_TIMEOUT,
     )

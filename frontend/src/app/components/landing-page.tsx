@@ -1,7 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowRight, Award, Flame, Star } from "lucide-react";
 import { HERO_BG, PREVIEW_CARDS, TIER_CONFIG } from "@/app/components/app-data";
+import { apiFetch } from "@/lib/api";
+import type { BackendRecipe } from "@/lib/types";
+
+const FLOATING_CARDS = [
+  { name: "Sichuan Mapo Tofu", user: "Lin W.", rating: "8.7", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1626804475297-411203b71f08?w=300&h=300&fit=crop&auto=format", top: "6%", left: "19%", rotate: "-8deg", size: "w-44", z: 3 },
+  { name: "Roasted Carrots", user: "Margot K.", rating: "8.2", tier: "A", type: "color", color: "#7A8B5A", top: "5%", left: "42%", rotate: "6deg", size: "w-40", z: 2 },
+  { name: "Lemon Tart", user: "Kenji S.", rating: "9.1", tier: "S", type: "color", color: "#C04E28", top: "24%", left: "30%", rotate: "5deg", size: "w-36", z: 4 },
+  { name: "Birria Tacos", user: "Cindy R.", rating: "8.9", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?w=300&h=300&fit=crop&auto=format", top: "14%", left: "52%", rotate: "-5deg", size: "w-44", z: 5 },
+  { name: "Vodka Pasta", user: "Sam T.", rating: "8.8", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1556761223-4c4282c73f77?w=300&h=300&fit=crop&auto=format", top: "14%", left: "75%", rotate: "-4deg", size: "w-40", z: 2 },
+  { name: "Greek Salad", user: "Kaavya P.", rating: "7.8", tier: "B", type: "color", color: "#F4ECE0", top: "40%", left: "16%", rotate: "-4deg", size: "w-40", z: 2 },
+  { name: "Butter Chicken", user: "Theo M.", rating: "8.5", tier: "A", type: "photo", img: "https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?w=300&h=300&fit=crop&auto=format", top: "34%", left: "48%", rotate: "7deg", size: "w-44", z: 4 },
+  { name: "Margherita Pizza", user: "Lucia F.", rating: "9.2", tier: "S", type: "color", color: "#7A8B5A", top: "32%", left: "64%", rotate: "5deg", size: "w-40", z: 4 },
+  { name: "Carne Asada Tacos", user: "Diego M.", rating: "9.0", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1611250188496-e966043a0629?w=300&h=300&fit=crop&auto=format", top: "56%", left: "10%", rotate: "6deg", size: "w-40", z: 3 },
+  { name: "Falafel Bowl", user: "Nadia H.", rating: "8.0", tier: "A", type: "color", color: "#B5805C", top: "54%", left: "38%", rotate: "-6deg", size: "w-40", z: 5 },
+  { name: "Fried Rice", user: "Jin K.", rating: "7.6", tier: "B", type: "color", color: "#F4ECE0", top: "52%", left: "62%", rotate: "-5deg", size: "w-36", z: 3 },
+  { name: "Caesar Salad", user: "Olivia P.", rating: "7.4", tier: "B", type: "photo", img: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=300&h=300&fit=crop&auto=format", top: "68%", left: "28%", rotate: "4deg", size: "w-40", z: 2 },
+  { name: "Pad Thai", user: "Mai S.", rating: "8.3", tier: "A", type: "photo", img: "https://images.unsplash.com/photo-1559314809-0d155014e29e?w=300&h=300&fit=crop&auto=format", top: "70%", left: "72%", rotate: "-4deg", size: "w-40", z: 4 },
+  { name: "Grilled Salmon", user: "Avaya Z.", rating: "9.1", tier: "S", type: "color", color: "#C04E28", top: "71%", left: "50%", rotate: "5deg", size: "w-36", z: 4 },
+] as const;
 
 function MiniCard({ card, offset }: { card: (typeof PREVIEW_CARDS)[0]; offset: number }) {
   const cfg = TIER_CONFIG[card.tier];
@@ -31,6 +51,15 @@ function MiniCard({ card, offset }: { card: (typeof PREVIEW_CARDS)[0]; offset: n
 }
 
 export function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSignup: () => void }) {
+  // Pull real food images from Supabase to fill the placeholder (color) cards.
+  const [poolImages, setPoolImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiFetch<BackendRecipe[]>("/recipes?limit=40")
+      .then((recipes) => setPoolImages(recipes.map((r) => r.image_url).filter((u): u is string => !!u)))
+      .catch(() => setPoolImages([]));
+  }, []);
+
   return (
     <div className="min-h-screen bg-background" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <header className="absolute top-0 left-0 right-0 z-20 px-10 py-5 flex items-center justify-between">
@@ -115,22 +144,16 @@ export function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSign
           <div className="absolute inset-0 bg-gradient-to-l from-transparent via-[#1C1814]/20 to-[#1C1814]/60" />
 
           <div className="absolute inset-0">
-            {[
-              { name: "Sichuan Mapo Tofu", user: "Lin W.", rating: "8.7", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1626804475297-411203b71f08?w=300&h=300&fit=crop&auto=format", top: "6%", left: "19%", rotate: "-8deg", size: "w-44", z: 3 },
-              { name: "Roasted Carrots", user: "Margot K.", rating: "8.2", tier: "A", type: "color", color: "#7A8B5A", top: "5%", left: "42%", rotate: "6deg", size: "w-40", z: 2 },
-              { name: "Lemon Tart", user: "Kenji S.", rating: "9.1", tier: "S", type: "color", color: "#C04E28", top: "24%", left: "30%", rotate: "5deg", size: "w-36", z: 4 },
-              { name: "Birria Tacos", user: "Cindy R.", rating: "8.9", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?w=300&h=300&fit=crop&auto=format", top: "14%", left: "52%", rotate: "-5deg", size: "w-44", z: 5 },
-              { name: "Vodka Pasta", user: "Sam T.", rating: "8.8", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1556761223-4c4282c73f77?w=300&h=300&fit=crop&auto=format", top: "14%", left: "75%", rotate: "-4deg", size: "w-40", z: 2 },
-              { name: "Greek Salad", user: "Kaavya P.", rating: "7.8", tier: "B", type: "color", color: "#F4ECE0", top: "40%", left: "16%", rotate: "-4deg", size: "w-40", z: 2 },
-              { name: "Butter Chicken", user: "Theo M.", rating: "8.5", tier: "A", type: "photo", img: "https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?w=300&h=300&fit=crop&auto=format", top: "34%", left: "48%", rotate: "7deg", size: "w-44", z: 4 },
-              { name: "Margherita Pizza", user: "Lucia F.", rating: "9.2", tier: "S", type: "color", color: "#7A8B5A", top: "32%", left: "64%", rotate: "5deg", size: "w-40", z: 4 },
-              { name: "Carne Asada Tacos", user: "Diego M.", rating: "9.0", tier: "S", type: "photo", img: "https://images.unsplash.com/photo-1611250188496-e966043a0629?w=300&h=300&fit=crop&auto=format", top: "56%", left: "10%", rotate: "6deg", size: "w-40", z: 3 },
-              { name: "Falafel Bowl", user: "Nadia H.", rating: "8.0", tier: "A", type: "color", color: "#B5805C", top: "54%", left: "38%", rotate: "-6deg", size: "w-40", z: 5 },
-              { name: "Fried Rice", user: "Jin K.", rating: "7.6", tier: "B", type: "color", color: "#F4ECE0", top: "52%", left: "62%", rotate: "-5deg", size: "w-36", z: 3 },
-              { name: "Caesar Salad", user: "Olivia P.", rating: "7.4", tier: "B", type: "photo", img: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=300&h=300&fit=crop&auto=format", top: "68%", left: "28%", rotate: "4deg", size: "w-40", z: 2 },
-              { name: "Pad Thai", user: "Mai S.", rating: "8.3", tier: "A", type: "photo", img: "https://images.unsplash.com/photo-1559314809-0d155014e29e?w=300&h=300&fit=crop&auto=format", top: "70%", left: "72%", rotate: "-4deg", size: "w-40", z: 4 },
-              { name: "Grilled Salmon", user: "Avaya Z.", rating: "9.1", tier: "S", type: "color", color: "#C04E28", top: "71%", left: "50%", rotate: "5deg", size: "w-36", z: 4 },
-            ].map((card) => (
+            {FLOATING_CARDS.map((card, index) => {
+              // Existing photo cards keep their image; placeholder (color) cards
+              // get a real food image pulled from Supabase when available.
+              const photoImg =
+                card.type === "photo"
+                  ? card.img
+                  : poolImages.length
+                    ? poolImages[index % poolImages.length]
+                    : undefined;
+              return (
               <div
                 key={card.name}
                 className={`absolute ${card.size} rounded-3xl overflow-hidden bg-white`}
@@ -145,10 +168,10 @@ export function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSign
                 <div className="absolute top-3 left-3 z-10 w-7 h-7 rounded-full bg-[#C04E28] flex items-center justify-center text-white text-xs font-bold shadow-md">
                   {card.tier}
                 </div>
-                {card.type === "photo" ? (
-                  <img src={card.img} alt={card.name} className="w-full h-32 object-cover" />
+                {photoImg ? (
+                  <img src={photoImg} alt={card.name} className="w-full h-32 object-cover" />
                 ) : (
-                  <div className="w-full h-32" style={{ backgroundColor: card.color }} />
+                  <div className="w-full h-32" style={{ backgroundColor: "color" in card ? card.color : "#C8BCAD" }} />
                 )}
                 <div className="p-3.5">
                   <p className="text-sm font-semibold leading-tight text-[#1C1814]">{card.name}</p>
@@ -158,7 +181,8 @@ export function LandingPage({ onLogin, onSignup }: { onLogin: () => void; onSign
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="absolute bottom-4 left-4 right-4">

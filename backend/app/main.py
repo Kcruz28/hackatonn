@@ -16,11 +16,12 @@ from app.routers import auth, followers, following, friends, profiles, recipes, 
 
 app = FastAPI(title="Reci API — profile/social endpoints")
 
-# CORS — allow the configured frontend origin (plus localhost for dev).
+# CORS — allow any origin so the app works from other devices on the network.
+# We authenticate with bearer tokens (not cookies), so credentials aren't needed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list({settings.FRONTEND_ORIGIN, "http://localhost:3000"}),
-    allow_credentials=True,
+    allow_origin_regex=".*",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

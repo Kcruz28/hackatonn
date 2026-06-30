@@ -2,7 +2,16 @@
 // non-2xx so callers can show error states.
 import { getToken } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Resolve the backend URL at call time. In the browser we target the SAME host
+// the app was opened from (so it works on localhost AND from other devices on
+// the network), with the backend on port 8000. NEXT_PUBLIC_API_URL overrides.
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
 
 export class ApiError extends Error {
   status: number;
@@ -24,7 +33,7 @@ export async function apiFetch<T>(
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${resolveApiUrl()}${path}`, { ...options, headers });
 
   if (!res.ok) {
     let message = res.statusText;

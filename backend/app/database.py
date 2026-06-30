@@ -5,12 +5,14 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
-# Supabase poolers (PgBouncer) don't support prepared-statement caching the way a
-# direct connection does; pool_pre_ping avoids handing out dead connections.
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+# Serverless-friendly: NullPool opens a fresh connection per request (real pooling
+# is handled by Supabase's transaction pooler on :6543), so ephemeral function
+# instances don't pile up idle connections. pool_pre_ping avoids dead connections.
+engine = create_engine(settings.DATABASE_URL, poolclass=NullPool, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
