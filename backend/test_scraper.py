@@ -1,56 +1,40 @@
 import json
+import random
 import time
 from app.services.scraper import scrape_recipe
-from seed.approved_urls import APPROVED_RECIPES
-import re
-
-def format_time(iso_time):
-    if not iso_time:
-        return None
-
-    hours = re.search(r"(\d+)H", iso_time)
-    minutes = re.search(r"(\d+)M", iso_time)
-
-    total = 0
-
-    if hours:
-        total += int(hours.group(1)) * 60
-
-    if minutes:
-        total += int(minutes.group(1))
-
-    if total == 0:
-        return None
-
-    return f"{total} min"
+from seed.recipe_urls import RECIPE_URLS
 
 all_recipes = []
 
-for item in APPROVED_RECIPES:
-    print(f"Scraping {item['name']}...")
+for url in RECIPE_URLS:
+    scraped = scrape_recipe(url)
 
-    scraped = scrape_recipe(item["url"])
+    if "error" in scraped:
+        print(f"Failed: {url}")
+        continue
 
     final_recipe = {
-    "name": item["name"],
-    "title": scraped.get("title"),
-    "rating": float(scraped["rating"]) if scraped.get("rating") else None,
-    "review_count": int(scraped["review_count"]) if scraped.get("review_count") else None,
-    "prep_time": format_time(scraped.get("prep_time")),
-    "cook_time": format_time(scraped.get("cook_time")),
-    "total_time": format_time(scraped.get("total_time")),
-    "difficulty": item["difficulty"],
-    "budget": item["budget"],
-    "saves": item["saves"],
-    "preview": scraped.get("description"),
-    "image_url": scraped.get("image_url"),
-    "ingredients": scraped.get("ingredients"),
-    "instructions": scraped.get("instructions"),
-    "source_url": scraped.get("source_url"),
-}
+        "name": scraped.get("title"),
+        "title": scraped.get("title"),
+        "rating": float(scraped["rating"]) if scraped.get("rating") else None,
+        "review_count": int(scraped["review_count"]) if scraped.get("review_count") else None,
+        "prep_time": scraped.get("prep_time"),
+        "cook_time": scraped.get("cook_time"),
+        "total_time": scraped.get("total_time"),
+        "difficulty": random.randint(2, 8),
+        "budget": random.choice(["$", "$$", "$$$"]),
+        "saves": random.randint(100, 3000),
+        "preview": scraped.get("description"),
+        "image_url": scraped.get("image_url"),
+        "ingredients": scraped.get("ingredients"),
+        "instructions": scraped.get("instructions"),
+        "source_url": scraped.get("source_url"),
+    }
 
     all_recipes.append(final_recipe)
-
     time.sleep(2)
 
-print(json.dumps(all_recipes, indent=2))
+with open("recipes.json", "w", encoding="utf-8") as file:
+    json.dump(all_recipes, file, indent=2, ensure_ascii=False)
+
+print(f"Saved {len(all_recipes)} recipes to recipes.json")
