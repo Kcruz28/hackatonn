@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import followers, following, friends, recipes, reviews
+from app.routers import auth, followers, following, friends, recipes, reviews
 
 app = FastAPI(title="Reci API — profile/social endpoints")
 
@@ -31,6 +31,7 @@ def health():
     return {"status": "ok"}
 
 
+app.include_router(auth.router)
 app.include_router(recipes.router)
 app.include_router(reviews.router)
 app.include_router(friends.router)
