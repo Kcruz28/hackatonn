@@ -38,9 +38,11 @@ def admin_create_user(email: str, password: str, username: str) -> dict:
     if resp.status_code in (200, 201):
         return resp.json()
     msg = _error_message(resp)
-    if resp.status_code in (409, 422) or "already" in msg.lower() or "registered" in msg.lower():
+    low = msg.lower()
+    # Only treat as a duplicate when the provider actually says the user exists.
+    if resp.status_code in (409, 422) and ("already" in low or "exists" in low):
         raise HTTPException(status_code=409, detail="Email already registered")
-    raise HTTPException(status_code=502, detail=f"Auth provider error: {msg}")
+    raise HTTPException(status_code=502, detail=f"Auth provider error ({resp.status_code}): {msg}")
 
 
 def admin_get_user(user_id: str) -> dict:

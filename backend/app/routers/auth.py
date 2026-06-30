@@ -66,16 +66,26 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=AuthResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    """Log in by username + password."""
-    profile = db.query(Profile).filter(Profile.name == payload.username).first()
+    """Log in with either a username or an email, plus password."""
+    identifier = payload.username.strip()
+
+    if "@" in identifier:
+        # Email login: validate the password, then resolve the profile by user id.
+        session = password_login(identifier, payload.password)
+        user_id = (session.get("user") or {}).get("id")
+        profile = db.get(Profile, uuid.UUID(user_id)) if user_id else None
+    else:
+        profile = db.query(Profile).filter(Profile.name == identifier).first()
+        if profile is None:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        email = admin_get_user(str(profile.profile_id)).get("email")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        session = password_login(email, payload.password)
+
     if profile is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    email = admin_get_user(str(profile.profile_id)).get("email")
-    if not email:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    session = password_login(email, payload.password)
     return AuthResponse(
         access_token=session["access_token"],
         refresh_token=session.get("refresh_token"),

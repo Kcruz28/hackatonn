@@ -1,21 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
-import { MY_RANKINGS, TIER_CONFIG } from "@/app/components/app-data";
+import { TIER_CONFIG, type Recipe } from "@/app/components/app-data";
+import { apiFetch, ApiError } from "@/lib/api";
+import { mapRecipe } from "@/lib/recipe-map";
+import type { BackendRecipe } from "@/lib/types";
 
 export function RankingsView() {
   const [activeTier, setActiveTier] = useState<"All" | "S" | "A" | "B" | "C">("All");
-  const [sortBy, setSortBy] = useState<"Recent" | "Rating">("Recent");
+  const [sortBy, setSortBy] = useState<"Recent" | "Rating">("Rating");
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = MY_RANKINGS.filter((recipe) => activeTier === "All" || recipe.tier === activeTier).sort((a, b) => (sortBy === "Rating" ? b.rating - a.rating : 0));
+  useEffect(() => {
+    apiFetch<BackendRecipe[]>("/recipes?limit=50")
+      .then((data) => setRecipes(data.map(mapRecipe)))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load rankings."));
+  }, []);
+
+  const filtered = recipes
+    .filter((recipe) => activeTier === "All" || recipe.tier === activeTier)
+    .sort((a, b) => (sortBy === "Rating" ? b.rating - a.rating : 0));
 
   const counts = {
-    All: MY_RANKINGS.length,
-    S: MY_RANKINGS.filter((recipe) => recipe.tier === "S").length,
-    A: MY_RANKINGS.filter((recipe) => recipe.tier === "A").length,
-    B: MY_RANKINGS.filter((recipe) => recipe.tier === "B").length,
-    C: MY_RANKINGS.filter((recipe) => recipe.tier === "C").length,
+    All: recipes.length,
+    S: recipes.filter((recipe) => recipe.tier === "S").length,
+    A: recipes.filter((recipe) => recipe.tier === "A").length,
+    B: recipes.filter((recipe) => recipe.tier === "B").length,
+    C: recipes.filter((recipe) => recipe.tier === "C").length,
   };
 
   return (
@@ -31,6 +44,10 @@ export function RankingsView() {
           ))}
         </div>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{error}</p>
+      )}
 
       <div className="flex gap-2 mb-5">
         {(["All", "S", "A", "B", "C"] as const).map((tier) => {
@@ -50,7 +67,7 @@ export function RankingsView() {
         {filtered.map((recipe, index) => {
           const cfg = TIER_CONFIG[recipe.tier];
           return (
-            <div key={recipe.id} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 group hover:shadow-sm transition-shadow">
+            <div key={recipe.backendId ?? recipe.id} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 group hover:shadow-sm transition-shadow">
               <span className="font-mono text-sm text-muted-foreground w-5 shrink-0">{index + 1}</span>
               <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted shrink-0">
                 <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -62,8 +79,7 @@ export function RankingsView() {
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-1 mb-1">"{recipe.notes}"</p>
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-muted-foreground">{recipe.cuisine} · {recipe.time}</span>
-                  <span className="text-[11px] text-muted-foreground">{recipe.rankedDate}</span>
+                  <span className="text-[11px] text-muted-foreground">{recipe.cuisine} · by {recipe.author}</span>
                 </div>
               </div>
               <div className="shrink-0 text-right">

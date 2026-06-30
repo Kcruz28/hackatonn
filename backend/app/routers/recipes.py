@@ -27,7 +27,7 @@ router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 class RecipeBase(BaseModel):
     title: str
-    cuisine: Optional[str] = None
+    budget: Optional[str] = None            # "$" / "$$" / "$$$"
     ingredients: Optional[str] = None       # free text (e.g. newline-separated)
     steps: Optional[str] = None             # free text (the procedure)
     image_url: Optional[str] = None
@@ -41,7 +41,9 @@ class RecipeOut(RecipeBase):
     model_config = ConfigDict(from_attributes=True)
 
     recipe_id: uuid.UUID
-    author: ProfileSummary
+    author: Optional[ProfileSummary] = None  # scraped recipes may have no author
+    rating: Optional[int] = None            # scraped rating column (seed recipes)
+    saves: Optional[int] = None             # scraped save count (seed recipes)
     review_count: int = 0
     avg_stars: Optional[float] = None
     created_at: datetime
@@ -70,11 +72,13 @@ def _to_out(recipe: Recipe, count: int, avg: Optional[float]) -> RecipeOut:
     return RecipeOut(
         recipe_id=recipe.recipe_id,
         title=recipe.title,
-        cuisine=recipe.cuisine,
+        budget=recipe.budget,
         ingredients=recipe.ingredients,
         steps=recipe.steps,
         image_url=recipe.image_url,
-        author=ProfileSummary.model_validate(recipe.author),
+        author=ProfileSummary.model_validate(recipe.author) if recipe.author else None,
+        rating=recipe.rating,
+        saves=recipe.saves,
         review_count=count,
         avg_stars=avg,
         created_at=recipe.created_at,
@@ -87,14 +91,11 @@ def _to_out(recipe: Recipe, count: int, avg: Optional[float]) -> RecipeOut:
 def list_recipes(
     skip: int = 0,
     limit: int = Query(default=10, le=100),
-    cuisine: Optional[str] = None,
     author: Optional[str] = Query(default=None, description="Filter by author UUID or name"),
     db: Session = Depends(get_db),
 ):
-    """LIST recipes, newest-first, with optional cuisine/author filters. (Public)"""
+    """LIST recipes, newest-first, with optional author filter. (Public)"""
     q = db.query(Recipe).order_by(Recipe.created_at.desc())
-    if cuisine:
-        q = q.filter(Recipe.cuisine == cuisine)
     if author:
         q = q.filter(Recipe.author_id == resolve_profile(db, author).profile_id)
     recipes = q.offset(skip).limit(limit).all()

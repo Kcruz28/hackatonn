@@ -22,13 +22,13 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export function RecipeCard({ recipe }: { recipe: Recipe }) {
+export function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen?: () => void }) {
   const [saved, setSaved] = useState(recipe.ranked);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(recipe.likes);
 
   return (
-    <article className="bg-card rounded-2xl overflow-hidden border border-border group transition-shadow hover:shadow-md">
+    <article onClick={onOpen} className="bg-card rounded-2xl overflow-hidden border border-border group transition-shadow hover:shadow-md cursor-pointer">
       <div className="relative h-52 bg-muted overflow-hidden">
         <img src={recipe.image} alt={recipe.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -68,20 +68,20 @@ export function RecipeCard({ recipe }: { recipe: Recipe }) {
 
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div className="flex items-center gap-3">
-            <button onClick={() => { setLiked(!liked); setLikes(liked ? likes - 1 : likes + 1); }} className={`flex items-center gap-1.5 text-xs transition-colors ${liked ? "text-[#C04E28]" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); setLikes(liked ? likes - 1 : likes + 1); }} className={`flex items-center gap-1.5 text-xs transition-colors ${liked ? "text-[#C04E28]" : "text-muted-foreground hover:text-foreground"}`}>
               <Heart size={14} fill={liked ? "currentColor" : "none"} />
               {likes}
             </button>
-            <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <MessageCircle size={14} />
               {recipe.comments}
             </button>
-            <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <Share2 size={14} />
             </button>
           </div>
 
-          <button onClick={() => setSaved(!saved)} className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${saved ? "bg-[#C04E28] text-white" : "bg-muted text-muted-foreground hover:bg-[#EDE7DC]"}`}>
+          <button onClick={(e) => { e.stopPropagation(); setSaved(!saved); }} className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${saved ? "bg-[#C04E28] text-white" : "bg-muted text-muted-foreground hover:bg-[#EDE7DC]"}`}>
             {saved ? <Check size={12} /> : <BookmarkPlus size={12} />}
             {saved ? "Ranked" : "Rank it"}
           </button>

@@ -3,20 +3,42 @@
 import { useState, type FormEvent } from "react";
 import { Award, Eye, EyeOff } from "lucide-react";
 import { TIER_CONFIG } from "@/app/components/app-data";
+import { apiFetch, ApiError } from "@/lib/api";
+import { setToken } from "@/lib/auth";
+import type { AuthResponse } from "@/lib/types";
 
 export function AuthPage({ mode, onBack, onEnter }: { mode: "login" | "signup"; onBack: () => void; onEnter: () => void }) {
   const [form, setForm] = useState({ email: "", password: "", name: "" });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"login" | "signup">(mode);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const body =
+        tab === "signup"
+          ? { username: form.name, email: form.email, password: form.password }
+          : { username: form.name, password: form.password };
+      const res = await apiFetch<AuthResponse>(`/auth/${tab}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setToken(res.access_token);
       onEnter();
-    }, 900);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && tab === "signup") {
+        setTab("login");
+        setError("That account already exists. Please sign in below.");
+      } else {
+        setError(err instanceof ApiError ? err.message : "Something went wrong. Is the backend running?");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -87,16 +109,16 @@ export function AuthPage({ mode, onBack, onEnter }: { mode: "login" | "signup"; 
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">{tab === "login" ? "Username or email" : "Username"}</label>
+            <input type="text" placeholder={tab === "login" ? "margot or you@example.com" : "margot"} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-[#C04E28]/30 transition-all" />
+          </div>
           {tab === "signup" && (
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Full name</label>
-              <input type="text" placeholder="Margot Villeneuve" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-[#C04E28]/30 transition-all" />
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Email</label>
+              <input type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-[#C04E28]/30 transition-all" />
             </div>
           )}
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Email</label>
-            <input type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-[#C04E28]/30 transition-all" />
-          </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-foreground">Password</label>
@@ -111,6 +133,10 @@ export function AuthPage({ mode, onBack, onEnter }: { mode: "login" | "signup"; 
               </button>
             </div>
           </div>
+
+          {error && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
 
           <button type="submit" disabled={loading} className="w-full bg-[#C04E28] text-white text-sm font-semibold py-3 rounded-xl hover:bg-[#9E3A1C] transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70">
             {loading ? (
@@ -129,7 +155,7 @@ export function AuthPage({ mode, onBack, onEnter }: { mode: "login" | "signup"; 
 
         <div className="grid grid-cols-2 gap-3">
           {['Google', 'Apple'].map((provider) => (
-            <button key={provider} onClick={onEnter} className="flex items-center justify-center gap-2 bg-muted border border-border rounded-xl py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors">
+            <button key={provider} type="button" disabled title="Not available yet" className="flex items-center justify-center gap-2 bg-muted border border-border rounded-xl py-2.5 text-sm font-medium text-foreground opacity-50 cursor-not-allowed transition-colors">
               {provider === "Google" ? (
                 <svg width="15" height="15" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

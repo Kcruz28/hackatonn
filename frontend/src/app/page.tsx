@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Search, ChevronRight, Flame, Users, List as ListIcon, BarChart2, Plus, Award } from "lucide-react";
 import { AuthPage } from "@/app/components/auth-page";
 import { LandingPage } from "@/app/components/landing-page";
@@ -8,12 +8,48 @@ import { RankingsView } from "@/app/components/rankings-view";
 import { ListsView } from "@/app/components/lists-view";
 import { FriendsView } from "@/app/components/friends-view";
 import { RecipeCard } from "@/app/components/recipe-card";
-import { FRIENDS, NAV_ITEMS, RECIPES, TRENDING, TIER_CONFIG, type Screen } from "@/app/components/app-data";
+import { AddRecipeModal } from "@/app/components/add-recipe-modal";
+import { RecipeDetailModal } from "@/app/components/recipe-detail-modal";
+import { FRIENDS, NAV_ITEMS, TRENDING, TIER_CONFIG, type Recipe, type Screen } from "@/app/components/app-data";
+import { apiFetch, ApiError } from "@/lib/api";
+import { mapRecipe } from "@/lib/recipe-map";
+import { useUser } from "@/hooks/useUser";
+import type { BackendRecipe } from "@/lib/types";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [activeNav, setActiveNav] = useState("Feed");
   const [searchFocused, setSearchFocused] = useState(false);
+  const { user, refresh } = useUser();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+
+  const loadFeed = useCallback(async () => {
+    try {
+      const data = await apiFetch<BackendRecipe[]>("/recipes?limit=50");
+      setRecipes(data.map(mapRecipe));
+      setFeedError(null);
+    } catch (err) {
+      setFeedError(err instanceof ApiError ? err.message : "Could not load recipes. Is the backend running?");
+    }
+  }, []);
+
+  async function changeAvatar() {
+    const url = window.prompt("Paste an image URL for your profile photo:", user?.avatar_url ?? "");
+    if (url === null) return;
+    try {
+      await apiFetch("/profiles/me", { method: "PATCH", body: JSON.stringify({ avatar_url: url.trim() || null }) });
+      await refresh();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Could not update your photo.");
+    }
+  }
+
+  useEffect(() => {
+    if (screen === "app") loadFeed();
+  }, [screen, loadFeed]);
 
   if (screen === "landing") {
     return <LandingPage onLogin={() => setScreen("login")} onSignup={() => setScreen("signup")} />;
@@ -40,14 +76,14 @@ export default function App() {
           </div>
 
           <div className="ml-auto flex items-center gap-4">
-            <button className="flex items-center gap-1.5 text-sm text-[#C04E28] font-medium border border-[#C04E28]/30 px-3 py-1.5 rounded-lg hover:bg-[#C04E28]/8 transition-colors">
+            <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 text-sm text-[#C04E28] font-medium border border-[#C04E28]/30 px-3 py-1.5 rounded-lg hover:bg-[#C04E28]/8 transition-colors">
               <Plus size={14} />
               Add Recipe
             </button>
 
             <div className="flex items-center gap-2 cursor-pointer group">
-              <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=36&h=36&fit=crop&auto=format" alt="Profile" className="w-8 h-8 rounded-full object-cover border-2 border-[#C04E28]/30" />
-              <span className="text-sm font-medium text-foreground">Cindy</span>
+              <img src={user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=36&h=36&fit=crop&auto=format"} alt="Profile" className="w-8 h-8 rounded-full object-cover border-2 border-[#C04E28]/30" />
+              <span className="text-sm font-medium text-foreground">{user?.name ?? "Guest"}</span>
             </div>
           </div>
         </div>
@@ -56,9 +92,11 @@ export default function App() {
       <div className="max-w-[1280px] mx-auto px-6 py-6 grid grid-cols-[220px_1fr_260px] gap-6">
         <aside className="space-y-6">
           <div className="bg-card rounded-2xl border border-border p-4 text-center">
-            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&auto=format" alt="Profile" className="w-16 h-16 rounded-full object-cover border-4 border-[#EDE7DC] mx-auto mb-3" />
-            <p className="font-['Playfair_Display'] font-semibold text-foreground">Cindy Zou</p>
-            <p className="text-xs text-muted-foreground mt-0.5">@ciindyzou</p>
+            <button onClick={changeAvatar} title="Click to change your photo" className="block mx-auto mb-3 rounded-full">
+              <img src={user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&auto=format"} alt="Profile" className="w-16 h-16 rounded-full object-cover border-4 border-[#EDE7DC] hover:opacity-80 transition-opacity" />
+            </button>
+            <p className="font-['Playfair_Display'] font-semibold text-foreground">{user?.name ?? "Guest"}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">@{(user?.name ?? "guest").toLowerCase().replace(/\s+/g, "")}</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               {[
                 { val: "142", label: "Ranked" },
@@ -121,9 +159,15 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              {feedError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{feedError}</p>
+              )}
+              {!feedError && recipes.length === 0 && (
+                <p className="text-sm text-muted-foreground">No recipes yet. Add one to get started.</p>
+              )}
               <div className="grid grid-cols-2 gap-4">
-                {RECIPES.map((recipe) => (
-                  <RecipeCard key={recipe.id} recipe={recipe} />
+                {recipes.map((recipe) => (
+                  <RecipeCard key={recipe.backendId ?? recipe.id} recipe={recipe} onOpen={() => setSelectedRecipe(recipe)} />
                 ))}
               </div>
             </>
@@ -180,6 +224,13 @@ export default function App() {
           </div>
         </aside>
       </div>
+
+      {showAdd && (
+        <AddRecipeModal onClose={() => setShowAdd(false)} onCreated={loadFeed} />
+      )}
+      {selectedRecipe && (
+        <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />
+      )}
     </div>
   );
 }

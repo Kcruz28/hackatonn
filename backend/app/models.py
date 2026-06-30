@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from sqlalchemy import (
     TIMESTAMP,
+    BigInteger,
     Column,
     ForeignKey,
     Integer,
@@ -54,7 +55,9 @@ class Recipe(Base):
     ingredients = Column(Text)          # free text (newline-separated), per the DB
     steps = Column(Text)                # free text (newline-separated), per the DB
     image_url = Column(Text)
-    cuisine = Column(Text)
+    rating = Column(BigInteger)         # scraped AllRecipes rating (scaled int), nullable
+    budget = Column(Text)               # "$" / "$$" / "$$$"
+    saves = Column(BigInteger)          # scraped save count, nullable
     created_at = _created_at()
 
     author = relationship("Profile")

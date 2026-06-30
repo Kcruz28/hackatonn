@@ -1,5 +1,8 @@
 export interface Recipe {
   id: number;
+  backendId?: string;
+  ingredients?: string;
+  steps?: string;
   name: string;
   author: string;
   authorAvatar: string;
