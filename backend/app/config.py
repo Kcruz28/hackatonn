@@ -16,16 +16,20 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str               # secret key (admin user creation) — backend only
 
     @property
+    def clean_supabase_url(self) -> str:
+        return self.SUPABASE_URL.rstrip("/")
+
+    @property
     def auth_url(self) -> str:
-        return f"{self.SUPABASE_URL}/auth/v1"
+        return f"{self.clean_supabase_url}/auth/v1"
 
     @property
     def jwks_url(self) -> str:
-        return f"{self.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+        return f"{self.clean_supabase_url}/auth/v1/.well-known/jwks.json"
 
     @property
     def issuer(self) -> str:
-        return f"{self.SUPABASE_URL}/auth/v1"
+        return f"{self.clean_supabase_url}/auth/v1"
 
 
 settings = Settings()  # type: ignore[call-arg]
