@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { Search, ChevronRight, Flame, Users, List as ListIcon, BarChart2, Plus, Award } from "lucide-react";
@@ -20,7 +20,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("landing");
   const [activeNav, setActiveNav] = useState("Feed");
   const [searchFocused, setSearchFocused] = useState(false);
-  const { user, refresh } = useUser();
+  const { user, loading, refresh } = useUser();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -48,8 +48,17 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (screen === "app") loadFeed();
-  }, [screen, loadFeed]);
+    if (screen === "app") {
+      loadFeed();
+      refresh();
+    }
+  }, [screen, loadFeed, refresh]);
+
+  useEffect(() => {
+    if (!loading && user && screen === "landing") {
+      setScreen("app");
+    }
+  }, [user, loading, screen]);
 
   if (screen === "landing") {
     return <LandingPage onLogin={() => setScreen("login")} onSignup={() => setScreen("signup")} />;
