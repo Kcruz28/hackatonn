@@ -65,7 +65,7 @@ export default function App() {
   }
 
   if (screen === "login" || screen === "signup") {
-    return <AuthPage mode={screen} onBack={() => setScreen("landing")} onEnter={() => setScreen("app")} />;
+    return <AuthPage mode={screen} onBack={() => setScreen("landing")} onEnter={async () => { await refresh(); setScreen("app"); }} />;
   }
 
   return (
